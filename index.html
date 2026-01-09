@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Xoleric | Art</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
+</head>
+<body>
+    <style>
+        :root {
+            --bg: #000;
+            --win-bg: rgba(15, 15, 15, 0.98);
+            --border: #222;
+            --accent: #fff;
+        }
+
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: sans-serif; }
+
+        /* --- Micro-Editor Panel (Kichik 200x200 yoki 250x250) --- */
+        .micro-panel {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: 240px; 
+            height: 240px;
+            background: var(--win-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .micro-panel.closed {
+            transform: scale(0);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Header dots */
+        .win-head {
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .dots { display: flex; gap: 6px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .red { background: #ff5f57; cursor: pointer; }
+        .yellow { background: #ffbd2e; }
+        .green { background: #28c840; }
+
+        .editor-container {
+            flex: 1;
+            position: relative;
+            padding: 5px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            border: none;
+            color: #ccc;
+            resize: none;
+            outline: none;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            padding: 10px;
+            line-height: 1.4;
+        }
+
+        textarea::placeholder {
+            color: #444;
+            font-size: 10px;
+            text-align: center;
+            padding-top: 60px;
+            letter-spacing: 1px;
+        }
+
+        .run-mini {
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 5px;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            border-radius: 0 0 9px 9px;
+        }
+
+        /* Show/Hide Trigger */
+        .trigger {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: #111;
+            color: #fff;
+            border: 1px solid #333;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            display: none;
+            z-index: 90;
+        }
+
+        /* Game & Preview */
+        #game-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #preview-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; border: none; background: #fff; }
+
+        .brand {
+            position: absolute;
+            bottom: 20px;
+            right: 25px;
+            font-size: 1.2rem;
+            color: #222;
+            letter-spacing: 4px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <button class="trigger" id="openBtn" onclick="toggle()">CODE</button>
+
+    <div class="micro-panel" id="panel">
+        <div class="win-head">
+            <div class="dots">
+                <div class="dot red" onclick="toggle()"></div>
+                <div class="dot yellow"></div>
+                <div class="dot green"></div>
+            </div>
+            <span style="color: #444; font-size: 9px;">XOLERIC EDITOR</span>
+        </div>
+        <div class="editor-container">
+            <textarea id="code" placeholder="XOLERIC CODNAI JOYLA"></textarea>
+        </div>
+        <button class="run-mini" onclick="run()">Run Preview</button>
+    </div>
+
+    <canvas id="pongCanvas"></canvas>
+    <iframe id="preview-layer"></iframe>
+    <div class="brand">XOLERIC</div>
+
+    <script>
+        const canvas = document.getElementById('pongCanvas');
+        const ctx = canvas.getContext('2d');
+        const panel = document.getElementById('panel');
+        const openBtn = document.getElementById('openBtn');
+        const preview = document.getElementById('preview-layer');
+        let running = true;
+
+        function toggle() {
+            panel.classList.toggle('closed');
+            openBtn.style.display = panel.classList.contains('closed') ? 'block' : 'none';
+        }
+
+        function run() {
+            const val = document.getElementById('code').value;
+            if(!val) return;
+            running = false;
+            canvas.style.display = 'none';
+            preview.style.display = 'block';
+            const doc = preview.contentDocument;
+            doc.open();
+            doc.write(val);
+            doc.close();
+        }
+
+        // --- PERFECT AI PONG ---
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.onresize = resize;
+        resize();
+
+        const ball = { x: canvas.width/2, y: canvas.height/2, dx: 6, dy: 6, r: 6 };
+        const pSize = { w: 10, h: 90 };
+        const left = { y: canvas.height/2 - 45 };
+        const right = { y: canvas.height/2 - 45 };
+
+        function draw() {
+            if(!running) return;
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+
+            // Ball physics
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            if(ball.y < 0 || ball.y > canvas.height) ball.dy *= -1;
+
+            // Perfect AI logic (Har doim to'pning markaziga qarab siljiydi)
+            // Chap raketka
+            left.y += (ball.y - (left.y + pSize.h/2)) * 1; // 1 = instant follow
+            // O'ng raketka
+            right.y += (ball.y - (right.y + pSize.h/2)) * 1;
+
+            // Collisions
+            if(ball.x < 30 && ball.y > left.y && ball.y < left.y + pSize.h) ball.dx *= -1;
+            if(ball.x > canvas.width - 30 && ball.y > right.y && ball.y < right.y + pSize.h) ball.dx *= -1;
+
+            // Draw elements
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(ball.x-ball.r, ball.y-ball.r, ball.r*2, ball.r*2);
+            ctx.fillRect(20, left.y, pSize.w, pSize.h);
+            ctx.fillRect(canvas.width-30, right.y, pSize.w, pSize.h);
+
+            // Center line
+            ctx.setLineDash([5, 15]);
+            ctx.strokeStyle = "#111";
+            ctx.beginPath();
+            ctx.moveTo(canvas.width/2, 0);
+            ctx.lineTo(canvas.width/2, canvas.height);
+            ctx.stroke();
+
+            requestAnimationFrame(draw);
+        }
+        draw();
+    </script>
+</body>
+</html>
