@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Xoleric World's</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
+</head>
+<body>
+    <style>
+        :root {
+            --bg: #000;
+            --panel-bg: rgba(10, 10, 10, 0.95);
+            --border: #222;
+        }
+
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; background: var(--bg);
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* --- Zilzila effekti --- */
+        @keyframes softShake {
+            0% { transform: translate(0,0); }
+            25% { transform: translate(1px, 1px); }
+            50% { transform: translate(-1px, -1px); }
+            100% { transform: translate(0,0); }
+        }
+        .shake { animation: softShake 0.1s ease-out; }
+
+        /* --- Kod Paneli (2:2 nisbat) --- */
+        .editor-win {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 230px;
+            height: 230px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+        }
+
+        .editor-win.hidden { 
+            transform: scale(0.5) translateY(-50px); 
+            opacity: 0; 
+            pointer-events: none; 
+        }
+
+        .head {
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .dots { display: flex; gap: 8px; }
+        .dot { 
+            width: 12px; 
+            height: 12px; 
+            border-radius: 50%; 
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            color: rgba(0,0,0,0.5);
+            font-weight: bold;
+        }
+        .red { background: #ff5f57; } /* X vazifasini bajaradi */
+        .red:hover::after { content: '×'; color: #000; }
+        .yellow { background: #ffbd2e; cursor: default; }
+        .green { background: #28c840; cursor: default; }
+
+        textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #fff;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            resize: none;
+            outline: none;
+            line-height: 1.5;
+        }
+
+        textarea::placeholder {
+            color: #333;
+            text-align: center;
+            padding-top: 60px;
+            font-size: 10px;
+            letter-spacing: 1px;
+        }
+
+        /* Qayta ochish tugmasi */
+        .open-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: #fff;
+            color: #000;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 900;
+            display: none;
+            border: none;
+            text-transform: uppercase;
+        }
+
+        /* Preview va Canvas */
+        #canvas { position: absolute; top: 0; left: 0; z-index: 1; }
+        #preview { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            display: none; border: none; background: #fff; z-index: 2;
+        }
+
+        .logo-text {
+            position: absolute;
+            bottom: 25px;
+            right: 25px;
+            color: rgba(255,255,255,0.03);
+            font-weight: 900;
+            letter-spacing: 10px;
+            pointer-events: none;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body id="container">
+
+    <button class="open-btn" id="openBtn" onclick="toggleEditor()">Editor</button>
+
+    <div class="editor-win" id="win">
+        <div class="head">
+            <div class="dots">
+                <div class="dot red" onclick="toggleEditor()" title="Yashirish"></div>
+                <div class="dot yellow"></div>
+                <div class="dot green"></div>
+            </div>
+            <span style="font-size: 10px; color: #444; font-weight: bold;">XOLERIC</span>
+        </div>
+        <textarea id="editor" placeholder="XOLERIC CODNAI JOYLA" oninput="autoRun()"></textarea>
+    </div>
+
+    <canvas id="canvas"></canvas>
+    <iframe id="preview"></iframe>
+    <div class="logo-text">XOLERIC</div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const preview = document.getElementById('preview');
+        const container = document.getElementById('container');
+        const win = document.getElementById('win');
+        const openBtn = document.getElementById('openBtn');
+        const editor = document.getElementById('editor');
+
+        let gameRunning = true;
+
+        // 1. Yashirish / Ko'rsatish (Fixed X)
+        function toggleEditor() {
+            const isHidden = win.classList.toggle('hidden');
+            openBtn.style.display = isHidden ? 'block' : 'none';
+        }
+
+        // 2. Auto-Run (Yozish bilan natija chiqarish)
+        function autoRun() {
+            const code = editor.value.trim();
+            if(code.length > 0) {
+                gameRunning = false;
+                canvas.style.display = 'none';
+                preview.style.display = 'block';
+                const doc = preview.contentDocument || preview.contentWindow.document;
+                doc.open(); doc.write(code); doc.close();
+            } else {
+                gameRunning = true;
+                canvas.style.display = 'block';
+                preview.style.display = 'none';
+                loop();
+            }
+        }
+
+        // 3. 360° AI Game Engine
+        function res() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.onresize = res; res();
+
+        const ball = { x: canvas.width/2, y: canvas.height/2, dx: 6, dy: 6, r: 8 };
+        const pSize = { vH: 100, vW: 10, hH: 10, hW: 100 };
+
+        function shakeEffect() {
+            container.classList.add('shake');
+            setTimeout(() => container.classList.remove('shake'), 100);
+        }
+
+        function loop() {
+            if(!gameRunning) return;
+
+            // Qora fon (Motion trail bilan)
+            ctx.fillStyle = "rgba(0,0,0,0.2)";
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            // AI Harakati (4 tomonlama mukammal kuzatuv)
+            const p = [
+                { x: 20, y: ball.y - pSize.vH/2, w: pSize.vW, h: pSize.vH }, // Chap
+                { x: canvas.width-30, y: ball.y - pSize.vH/2, w: pSize.vW, h: pSize.vH }, // O'ng
+                { x: ball.x - pSize.hW/2, y: 20, w: pSize.hW, h: pSize.hH }, // Tepa
+                { x: ball.x - pSize.hW/2, y: canvas.height-30, w: pSize.hW, h: pSize.hH } // Past
+            ];
+
+            // To'qnashuvlar (Collisions)
+            // Yonlar
+            if((ball.x < 40 && ball.y > p[0].y && ball.y < p[0].y + p[0].h) || 
+               (ball.x > canvas.width-40 && ball.y > p[1].y && ball.y < p[1].y + p[1].h)) {
+                ball.dx *= -1.02; // Har zarbada biroz tezlashadi
+                shakeEffect();
+            }
+            // Tepa va Past
+            if((ball.y < 40 && ball.x > p[2].x && ball.x < p[2].x + p[2].w) || 
+               (ball.y > canvas.height-40 && ball.x > p[3].x && ball.x < p[3].x + p[3].w)) {
+                ball.dy *= -1.02;
+                shakeEffect();
+            }
+
+            // Chizish
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
+            ctx.fill();
+
+            ctx.fillStyle = "#222"; // Raketkalar rangi
+            p.forEach(rect => ctx.fillRect(rect.x, rect.y, rect.w, rect.h));
+
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>
