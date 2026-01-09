@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Xoleric World's</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
+</head>
+<body>
+    <style>
+        :root {
+            --bg: #000;
+            --panel-bg: rgba(10, 10, 10, 0.95);
+            --border: #222;
+            --accent: #fff;
+        }
+
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; background: var(--bg); color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        /* --- Micro-Editor Panel --- */
+        .editor-window {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 260px;
+            height: 260px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .editor-window.hidden {
+            transform: scale(0) translate(-100px, -100px);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Header dots & X button */
+        .header {
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .controls { display: flex; gap: 6px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .red { background: #ff5f57; }
+        .yellow { background: #ffbd2e; }
+        .green { background: #28c840; }
+
+        .close-x {
+            color: #555;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: 0.2s;
+            line-height: 1;
+        }
+        .close-x:hover { color: #ff5f57; }
+
+        /* Editor Input */
+        .editor-body { flex: 1; padding: 5px; position: relative; }
+        
+        textarea {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            border: none;
+            color: #28c840; /* Matrix Green */
+            resize: none;
+            outline: none;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 12px;
+            padding: 10px;
+            line-height: 1.5;
+        }
+
+        /* Fon yozuvi (Xoleric codni joyla) */
+        .bg-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #222;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            pointer-events: none;
+            text-align: center;
+            width: 100%;
+            z-index: -1;
+        }
+
+        /* Show Trigger Button */
+        .show-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            z-index: 90;
+            text-transform: uppercase;
+        }
+
+        /* Preview Layers */
+        #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #preview-frame { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            display: none; border: none; background: #fff; 
+        }
+
+        .watermark {
+            position: absolute;
+            bottom: 25px;
+            right: 30px;
+            font-size: 1.5rem;
+            color: rgba(255,255,255,0.05);
+            font-weight: 900;
+            letter-spacing: 5px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <button class="show-btn" id="showBtn" onclick="toggleEditor()">Editor</button>
+
+    <div class="editor-window" id="editorWindow">
+        <div class="header">
+            <div class="controls">
+                <div class="dot red"></div>
+                <div class="dot yellow"></div>
+                <div class="dot green"></div>
+            </div>
+            <div class="close-x" onclick="toggleEditor()">×</div>
+        </div>
+        <div class="editor-body">
+            <div class="bg-label">Xoleric codni joyla</div>
+            <textarea id="codeInput" spellcheck="false" oninput="autoRun()"></textarea>
+        </div>
+    </div>
+
+    <canvas id="game-canvas"></canvas>
+    <iframe id="preview-frame"></iframe>
+    <div class="watermark">XOLERIC</div>
+
+    <script>
+        const editorWindow = document.getElementById('editorWindow');
+        const showBtn = document.getElementById('showBtn');
+        const codeInput = document.getElementById('codeInput');
+        const previewFrame = document.getElementById('preview-frame');
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+
+        let gameActive = true;
+
+        // 1. Yashirish/Ko'rsatish
+        function toggleEditor() {
+            const isHidden = editorWindow.classList.toggle('hidden');
+            showBtn.style.display = isHidden ? 'block' : 'none';
+        }
+
+        // 2. Avtomatik Ishga Tushirish (Auto-Run)
+        function autoRun() {
+            const code = codeInput.value.trim();
+            
+            if (code.length > 0) {
+                gameActive = false;
+                canvas.style.display = 'none';
+                previewFrame.style.display = 'block';
+
+                const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+                doc.open();
+                doc.write(code);
+                doc.close();
+            } else {
+                // Agar kod o'chirib tashlansa, o'yinga qaytadi
+                gameActive = true;
+                canvas.style.display = 'block';
+                previewFrame.style.display = 'none';
+                draw();
+            }
+        }
+
+        // 3. Perfect AI Pong O'yini
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const ball = { x: 100, y: 100, dx: 7, dy: 7, r: 7 };
+        const paddle = { w: 12, h: 100 };
+        const left = { y: 0 };
+        const right = { y: 0 };
+
+        function draw() {
+            if (!gameActive) return;
+
+            // Fonni tozalash
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // To'p harakati
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            // Devorga urilish
+            if (ball.y < 0 || ball.y > canvas.height) ball.dy *= -1;
+
+            // PERFECT AI: Raketkalar har doim to'p markazida
+            left.y = ball.y - paddle.h / 2;
+            right.y = ball.y - paddle.h / 2;
+
+            // To'qnashuvlar (Collision)
+            if (ball.x < 40 && ball.y > left.y && ball.y < left.y + paddle.h) {
+                ball.dx = Math.abs(ball.dx);
+            }
+            if (ball.x > canvas.width - 40 && ball.y > right.y && ball.y < right.y + paddle.h) {
+                ball.dx = -Math.abs(ball.dx);
+            }
+
+            // Chizish
+            ctx.fillStyle = "#fff";
+            // To'p
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
+            ctx.fill();
+            // Raketkalar
+            ctx.fillRect(20, left.y, paddle.w, paddle.h);
+            ctx.fillRect(canvas.width - 32, right.y, paddle.w, paddle.h);
+
+            // Markaziy chiziq
+            ctx.strokeStyle = "rgba(255,255,255,0.1)";
+            ctx.setLineDash([15, 15]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width/2, 0);
+            ctx.lineTo(canvas.width/2, canvas.height);
+            ctx.stroke();
+
+            requestAnimationFrame(draw);
+        }
+
+        // O'yinni boshlash
+        draw();
+    </script>
+</body>
+</html>
